@@ -2,7 +2,7 @@
 **Prediction whether asteroids are potentially hazardous or not**
 
 Motivation:-
-Though I don't have much knowledge about Astrophysics fields, I really am interested in this field. So, when I came across this interesting problem statement, I decided to work on it. The model for this problem statement is created using machine learning algorithms in R.\
+Though I don't have much knowledge about Astrophysics fields, I really am interested in it. So, when I came across this interesting problem statement, I decided to work on it. The model for this problem statement is created using machine learning algorithms in R.\
 
 Dataset:- https://www.kaggle.com/datasets/sakhawat18/asteroid-dataset \
 This dataset is officially maintained by Jet Propulsion Laboratory of California Institute of Technology which is an organization under NASA.

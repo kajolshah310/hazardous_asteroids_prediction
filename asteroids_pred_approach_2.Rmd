@@ -1,0 +1,392 @@
+---
+title: "DPA_Program_Approach2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+#Asteroids Potential Hazards Prediction
+
+This markdown file contains various data preparation and analysis techniques learned during the course to predict if an Asteroid is a potential hazard or not.
+
+
+#DATA
+
+First we start of by inputting the data we will be using for our prediction.
+The used used is from kaggle: https://www.kaggle.com/sakhawat18/asteroid-dataset
+
+#Features of the Data set
+
+1. SPK-ID: Object primary SPK-ID
+2. Object ID: Object internal database ID
+3. Object fullname: Object full name/designation
+4. pdes: Object primary designation
+5. name: Object IAU name
+6. NEO: Near-Earth Object (NEO) flag
+8. H: Absolute magnitude parameter
+9. Diameter: object diameter (from equivalent sphere) km Unit
+10. Albedo: Geometric albedo
+11. Diameter_sigma: 1-sigma uncertainty in object diameter km Unit
+12. Orbit_id: Orbit solution ID
+13. Epoch: Epoch of osculation in modified Julian day form
+14. Equinox: Equinox of reference frame
+15. e: Eccentricity
+16. a: Semi-major axis au Unit
+17. q: perihelion distance au Unit
+18. i: inclination; angle with respect to x-y ecliptic plane
+19. tp: Time of perihelion passage TDB Unit
+20. moid_ld: Earth Minimum Orbit Intersection Distance au Unit
+
+The above are the features of perticular asteroid given in the dataset.
+
+Our goal to predict: PHA: Potentially Hazardous Asteroid (PHA) flag
+
+
+#Libararies:
+
+```{r}
+library(readr)
+library(ggplot2)
+```
+
+##Data preprocessing:
+
+Inputting the dataset
+
+```{r}
+dataset <- read_csv("dataset.csv")
+df<-data.frame(dataset)
+summary(df)
+head(df)
+
+```
+```{r}
+dim(df)
+```
+
+Find if there are any missing values
+```{r}
+sapply(df,function(x) sum(is.na(x)))
+```
+Here, we can see that the columns name, prefix, diameter, albedo, diameter_sigma are having missing values. 
+
+#Finding if there are null values:
+```{r}
+library(Amelia)
+missmap(df, main = "Missing values vs observed")
+```
+
+From above we can see that there are 'NA' values present in the dataset which need to be taken care of before we proceed to create our model.
+
+Check for null values
+```{r}
+is.null(df)
+dim(df)
+```
+As our model is not dependent on the names and prefix columns, we will not use those columns. 
+
+The other columns which are having missing values are diameter and diameter_sigma. 
+```{r}
+#library(zoo)
+#df1 = na.aggregate(df) 
+#asmean <- function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))
+#replace(df, TRUE, lapply(df, asmean))
+#df[sapply(df, is.numeric)] <- lapply(df[sapply(df, is.numeric)], function(x) ifelse(is.na(x), mean(x, na.rm = TRUE), x))
+```
+```{r}
+#sapply(df,function(x) sum(is.na(x)))
+```
+
+
+#Data Cleaning
+
+From our dataset we remove the columns 'id', 'names' and 'prefix' as they are not required and are redundant information for our model.
+
+Since our dataset is big we will omit the values containing 'NA' instead of replacing them.
+
+```{r}
+ds <- df[-c(1, 5, 6)]
+ds<-na.omit(ds)
+colSums(is.na(ds))
+dim(ds)
+#View(ds)
+```
+
+
+```{r}
+length(which(df$pha == "Y"))
+p<-ggplot(data=ds, aes(x=pha, y=length(which(pha == "Y")))) + geom_bar(stat="identity")
+p
+```
+
+```{r}
+colnames(ds)
+```
+Adding to this we also drop id, spkid,  full_name, orbit_id, equinox as they are not necessary.
+
+```{r}
+ds1 <- ds[-c(1:2, 10, 14)]
+print("after removing")
+colnames(ds1)
+ds1
+
+```
+
+#Data Wrangling
+
+Remove Duplicates
+```{r}
+df1 = unique(ds1)
+df1
+```
+
+```{r}
+summary(df1)
+```
+```{r}
+unique(df1$class)
+```
+Data Visualization
+```{r}
+library(psych)
+df2 = df1[, c(4:36,38)]
+#describe(df2)
+typeof(df2)
+#df2 = char2numeric(df2)
+#df3 = as.numeric(unlist(df2))
+#typeof(df3)
+#dim(df3)
+#df3
+#cormat = round(cor(df3), cor(df3), digits =2)
+
+#xcormat
+```
+```{r}
+cormat = cor(df2,df2)
+cormat
+```
+Create Heat map in R
+
+```{r}
+heatmap(cormat)
+```
+From the above heatmap, we can see that there are some features which are correlated with each other which means that they can be removed
+
+Below is the set of features which are correlated with each other.
+epoch           
+epoch_mjd
+epoch_cal
+So, I'll be dropping epoch_mjd and epoch_cal columns.
+
+Another set of features which are correlated with each other are:-
+tp_cal
+tp
+So, I'll be dropping the tp_cal column
+
+Below two features are also correlated to each other:-
+per
+per_y
+So, I'll drop per_y
+
+Below three features are also correlated to each other:-
+moid
+moid_ld
+q
+So, I'll drop moid_ld column
+
+```{r}
+colnames(df2)
+```
+
+```{r}
+df3 <- df2[-c(6,7,18,20,22)]
+colnames(df3)
+```
+Scatter plot to find relation between moid and q
+```{r}
+plot(df3$moid,df3$q)
+```
+Here, we can see that there is a linear relation between moid and q. So, we can drop column q as well.
+```{r}
+df3 <- df3[-c(8)]
+colnames(df3)
+```
+
+```{r}
+plot(df3$sigma_ma,df3$sigma_tp)
+```
+Here, we can see that the relation between sigma_ma and sigma_tp is not linear. So, we cannot drop either of them
+
+Scatter plot to find relation between a and ad
+```{r}
+plot(df3$a, df3$ad)
+```
+The relation between a and ad is not exactly linear. So, we will not drop either of them
+```{r}
+hist(df3$albedo, col = "red")
+```
+
+```{r}
+hist(df3$diameter_sigma, col = "green")
+```
+```{r}
+hist(df3$rms, col = "blue")
+```
+```{r}
+df3$pha = df1$pha
+df3
+```
+Modeling
+```{r}
+df3$pha
+```
+
+Train-test split of the data
+```{r}
+library(caret)
+
+asTrain <- createDataPartition(
+  y = df3$pha,
+  p = 0.8,
+  list = FALSE
+)
+
+asTraining = df3[asTrain,]
+asTesting = df3[-asTrain,]
+```
+
+Checking number of rows in train test variables
+```{r}
+nrow(asTraining)
+nrow(asTesting)
+```
+
+
+
+Logistic Regression
+
+```{r}
+#df3$pha = factor(df3$pha, levels=c("N", "Y"), labels=c(0, 1))
+log_model = glm(as.factor(asTraining$pha) ~. ,data = asTraining, family = binomial(link = "logit"))
+summary(log_model)
+```
+
+Calculating the predicted values
+
+```{r}
+log_predicted = predict(log_model, asTesting, type = "response")
+log_pred = ifelse(log_predicted > 0.5, "Y", "N")
+```
+
+Calculating the error
+
+```{r}
+log_error = mean(log_pred != asTesting$pha)
+log_error
+```
+Calculate Accuracy
+```{r}
+print(paste('Accuracy of Logistic Regression is ', 1 - log_error))
+```
+Naive Bayes model
+```{r}
+library(naivebayes)
+```
+
+```{r}
+modelNB <- naive_bayes(pha ~ ., data = asTraining, usekernel = T) 
+plot(modelNB) 
+```
+
+```{r}
+p <- predict(modelNB, asTraining, type = 'prob')
+
+```
+
+```{r}
+p1 <- predict(modelNB, asTraining)
+(tab1 <- table(p1, asTraining$pha))
+errornb_tr <- 1 - sum(diag(tab1)) / sum(tab1)
+
+accuracy <-  1- errornb_tr
+print(paste("Accuracy of Training model is ", accuracy))
+```
+
+
+```{r}
+p2 <- predict(modelNB, asTesting)
+(tab2 <- table(p2, asTesting$pha))
+errornb_test = 1 - sum(diag(tab2)) / sum(tab2)
+print(paste("Accuracy of Naive Bayes Test model is", 1 - errornb_test ))
+```
+
+Decision Tree
+
+```{r}
+library(rpart)
+library(rpart.plot)
+```
+
+```{r}
+asTraining$pha = as.factor(asTraining$pha)
+tree = rpart(pha ~ ., data = asTraining, method="class", cp = 0.05)
+rpart.plot(tree)
+```
+Calculating predicted values
+```{r}
+tree_predicted = predict(tree, asTesting, type='class')
+asTesting$pha = as.factor(asTesting$pha)
+confusionMatrix(tree_predicted, asTesting$pha)
+levels(tree_predicted)
+levels(asTesting$pha)
+```
+Here, we can see accuracy of the Decision tree model is 99%
+
+GBM
+```{r}
+library(gbm)
+```
+
+```{r}
+#asTraining$pha = ifelse(asTraining$pha == "Y", 1, 0)
+asTraining$pha = as.factor(asTraining$pha)
+gbm_model = gbm(pha ~ ., data = asTraining, distribution = "multinomial", cv.folds=5, n.trees = 200, shrinkage = 0.01)
+```
+```{r}
+#best_iter = gbm.perf(gbm_model, method = "cv")
+```
+```{r}
+gbm_predicted = predict.gbm(gbm_model, asTesting, n.tress = 200, type = "response")
+gbm_predicted
+labels = colnames(gbm_predicted)[apply(gbm_predicted, 1, which.max)]
+result = data.frame(asTesting$pha, labels)
+#asTesting$pha = as.factor(asTesting$pha)
+confusionMatrix(asTesting$pha, as.factor(labels), positive = 'Y')
+```
+
+
+Support Vector Machine model
+
+```{r}
+library(e1071)
+```
+
+```{r}
+#asTraining$pha = ifelse(asTraining$pha == "Y", 1, 0)
+asTraining$pha = as.factor(asTraining$pha)
+svmfit = svm(pha ~ ., data = asTraining, kernel = "linear", cost = 10, scale = FALSE)
+print(svmfit)
+```
+```{r}
+#print(svmfit)
+```
+```{r}
+svm_predicted = predict(svmfit, asTesting)
+confusionMatrix(tree_predicted, asTesting$pha)
+```
+
+
